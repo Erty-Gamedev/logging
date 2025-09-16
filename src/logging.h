@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <filesystem>
+#include <cinttypes>
 #include <string>
 #include <unordered_map>
 #include <chrono>
@@ -10,7 +11,6 @@
 #ifdef _WIN32
 #include <wchar.h>
 #include <windows.h>
-#include <cinttypes>
 #endif
 
 
