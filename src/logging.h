@@ -10,6 +10,7 @@
 #ifdef _WIN32
 #include <wchar.h>
 #include <windows.h>
+#include <cinttypes>
 #endif
 
 
@@ -72,34 +73,72 @@ static inline bool enableVirtualTerminal()
 
 namespace Styling
 {
-	static inline const char* reset = "\033[0m";
+	static inline constexpr uint32_t reset				= 0;
+	static inline constexpr uint32_t bold				= 1;
+	static inline constexpr uint32_t dim				= 1 << 1;
+	static inline constexpr uint32_t italic				= 1 << 2;
+	static inline constexpr uint32_t underline			= 1 << 3;
+	static inline constexpr uint32_t strikeout			= 1 << 4;
+	static inline constexpr uint32_t normal				= 1 << 5;
+	static inline constexpr uint32_t black				= 1 << 6;
+	static inline constexpr uint32_t red				= 1 << 7;
+	static inline constexpr uint32_t green				= 1 << 8;
+	static inline constexpr uint32_t yellow				= 1 << 9;
+	static inline constexpr uint32_t blue				= 1 << 10;
+	static inline constexpr uint32_t magenta			= 1 << 11;
+	static inline constexpr uint32_t cyan				= 1 << 12;
+	static inline constexpr uint32_t white				= 1 << 13;
+	static inline constexpr uint32_t brightBlack		= 1 << 14;
+	static inline constexpr uint32_t brightRed			= 1 << 15;
+	static inline constexpr uint32_t brightGreen		= 1 << 16;
+	static inline constexpr uint32_t brightYellow		= 1 << 17;
+	static inline constexpr uint32_t brightBlue			= 1 << 18;
+	static inline constexpr uint32_t brightMagenta		= 1 << 19;
+	static inline constexpr uint32_t brightCyan			= 1 << 20;
+	static inline constexpr uint32_t brightWhite		= 1 << 21;
 
-	static inline const char* fgBlack = "\033[30m";
-	static inline const char* fgRed = "\033[31m";
-	static inline const char* fgGreen = "\033[32m";
-	static inline const char* fgYellow = "\033[33m";
-	static inline const char* fgBlue = "\033[34m";
-	static inline const char* fgMagenta = "\033[35m";
-	static inline const char* fgCyan = "\033[36m";
-	static inline const char* fgWhite = "\033[37m";
+	static inline constexpr uint32_t debug		= brightBlack;
+	static inline constexpr uint32_t info		= cyan;
+	static inline constexpr uint32_t warning	= bold | yellow;
+	static inline constexpr uint32_t error		= bold | red;
+	static inline constexpr uint32_t success	= bold | green;
 
-	static inline const char* fgBrightBlack = "\033[90m";
-	static inline const char* fgBrightRed = "\033[91m";
-	static inline const char* fgBrightGreen = "\033[92m";
-	static inline const char* fgBrightYellow = "\033[93m";
-	static inline const char* fgBrightBlue = "\033[94m";
-	static inline const char* fgBrightMagenta = "\033[95m";
-	static inline const char* fgBrightCyan = "\033[96m";
-	static inline const char* fgBrightWhite = "\033[97m";
+	static inline std::string style(uint32_t style = reset, bool noReset = false)
+	{
+		if (style == reset) return "\033[0m";
 
-	static inline const char* bold = "\033[1m"; // works
-	static inline const char* dim = "\033[2m";
-	static inline const char* italic = "\033[3m";
-	static inline const char* underline = "\033[4m"; // works
-	static inline const char* blinking = "\033[5m";
-	static inline const char* reverse = "\033[6m";
-	static inline const char* hidden = "\033[8m";
-	static inline const char* strikethrough = "\033[8m";
+		std::string styleString = noReset ? "\033[" : "\033[0;";
+
+		if (style & bold) styleString			+= "1;";
+		if (style & dim) styleString			+= "2;";
+		if (style & italic) styleString			+= "3;";
+		if (style & underline) styleString		+= "4;";
+		if (style & strikeout) styleString		+= "9;";
+		if (style & normal) styleString			+= "22;";
+
+		if (style & black) styleString			+= "30;";
+		if (style & red) styleString			+= "31;";
+		if (style & green) styleString			+= "32;";
+		if (style & yellow) styleString			+= "33;";
+		if (style & blue) styleString			+= "34;";
+		if (style & magenta) styleString		+= "35;";
+		if (style & cyan) styleString			+= "36;";
+		if (style & white) styleString			+= "37;";
+
+		if (style & brightBlack) styleString	+= "90;";
+		if (style & brightRed) styleString		+= "91;";
+		if (style & brightGreen) styleString	+= "92;";
+		if (style & brightYellow) styleString	+= "93;";
+		if (style & brightBlue) styleString		+= "94;";
+		if (style & brightMagenta) styleString	+= "95;";
+		if (style & brightCyan) styleString		+= "96;";
+		if (style & brightWhite) styleString	+= "97;";
+
+		if (!styleString.empty() && styleString.back() == ';')
+			styleString.pop_back();
+
+		return styleString + 'm';
+	}
 }
 
 
@@ -129,29 +168,15 @@ namespace Logging
 		LOG_ERROR,
 	};
 
-	inline const char* getLogLevelName(LogLevel level, bool titleOnly = false)
+	static inline constexpr const char* getLogLevelName(LogLevel level)
 	{
-		if (titleOnly)
+		switch (level)
 		{
-			switch (level)
-			{
-			case LogLevel::LOG_DEBUG:   return "DEBUG";
-			case LogLevel::LOG_LOG:     return "";
-			case LogLevel::LOG_INFO:    return "INFO";
-			case LogLevel::LOG_WARNING: return "WARNING";
-			case LogLevel::LOG_ERROR:   return "ERROR";
-			}
-		}
-		else
-		{
-			switch (level)
-			{
-			case LogLevel::LOG_DEBUG:   return "DEBUG:   ";
-			case LogLevel::LOG_LOG:     return "";
-			case LogLevel::LOG_INFO:    return "INFO:    ";
-			case LogLevel::LOG_WARNING: return "WARNING: ";
-			case LogLevel::LOG_ERROR:   return "ERROR:   ";
-			}
+		case LogLevel::LOG_DEBUG:   return "DEBUG";
+		case LogLevel::LOG_LOG:     return "";
+		case LogLevel::LOG_INFO:    return "INFO";
+		case LogLevel::LOG_WARNING: return "WARNING";
+		case LogLevel::LOG_ERROR:   return "ERROR";
 		}
 		return "";
 	}
@@ -186,7 +211,9 @@ namespace Logging
 			if (level < m_loglevel) { return; }
 
 			std::ostream& os = (level > LogLevel::LOG_INFO) ? std::cerr : std::cout;
-			const char* levelName = getLogLevelName(level);
+			auto* pOs = (level > LogLevel::LOG_INFO) ? stderr : stdout;
+
+			const std::string levelName = std::string{ getLogLevelName(level) } + ':';
 
 			if (!g_isVirtual)
 			{
@@ -194,21 +221,31 @@ namespace Logging
 				return;
 			}
 
-			os << Styling::bold << levelName << Styling::reset;
+			if (level != LogLevel::LOG_LOG)
+			{
+				os << Styling::style(Styling::bold);
+				fprintf(pOs, "%-9s", levelName.c_str());
+			}
+
 			switch (level)
 			{
+			case LogLevel::LOG_LOG:
+				break;
+			case LogLevel::LOG_DEBUG:
+				os << Styling::style(Styling::debug);
+				break;
 			case LogLevel::LOG_INFO:
-				os << Styling::fgCyan;
+				os << Styling::style(Styling::info);
 				break;
 			case LogLevel::LOG_WARNING:
-				os << Styling::bold << Styling::fgYellow;
+				os << Styling::style(Styling::warning);
 				break;
 			case LogLevel::LOG_ERROR:
-				os << Styling::bold << Styling::fgRed;
+				os << Styling::style(Styling::error);
 				break;
 			}
 
-			os << message << Styling::reset << std::endl;
+			os << message << Styling::style() << std::endl;
 		}
 	};
 
@@ -256,7 +293,7 @@ namespace Logging
 				m_logfileChecked = true;
 			}
 
-			m_logfile << formattedDatetime("[%FT%T]") << getLogLevelName(level, true) << "|"
+			m_logfile << formattedDatetime("[%FT%T]") << getLogLevelName(level) << "|"
 				<< loggerName << "|" << message << std::endl;
 		}
 	};
