@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <cinttypes>
 #include <string>
+#include <vector>
 #include <unordered_map>
 #include <chrono>
 
@@ -73,6 +74,8 @@ static inline bool enableVirtualTerminal()
 
 namespace Styling
 {
+	static bool g_isVirtual = enableVirtualTerminal();
+
 	static inline constexpr uint32_t reset				= 0;
 	static inline constexpr uint32_t bold				= 1;
 	static inline constexpr uint32_t dim				= 1 << 1;
@@ -103,8 +106,11 @@ namespace Styling
 	static inline constexpr uint32_t error		= bold | red;
 	static inline constexpr uint32_t success	= bold | green;
 
+
 	static inline std::string style(uint32_t style = reset, bool noReset = false)
 	{
+		if (!g_isVirtual) return "";
+
 		if (style == reset) return "\033[0m";
 
 		std::string styleString = noReset ? "\033[" : "\033[0;";
@@ -187,8 +193,6 @@ namespace Logging
 	static inline constexpr LogLevel DEFAULT_LOG_LEVEL = LogLevel::LOG_INFO;
 #endif
 
-	static bool g_isVirtual = enableVirtualTerminal();
-
 	class LogHandler
 	{
 	protected:
@@ -205,8 +209,7 @@ namespace Logging
 		using LogHandler::LogHandler;
 		using LogHandler::setLevel;
 
-		template <typename T>
-		void log(const LogLevel& level, T message)
+		template <typename T> void log(const LogLevel& level, T message)
 		{
 			if (level < m_loglevel) { return; }
 
@@ -215,9 +218,10 @@ namespace Logging
 
 			const std::string levelName = std::string{ getLogLevelName(level) } + ':';
 
-			if (!g_isVirtual)
+			if (!Styling::g_isVirtual)
 			{
-				os << levelName << message << std::endl;
+				if (level != LogLevel::LOG_LOG) fprintf(pOs, "%-9s", levelName.c_str());
+				os << message << std::endl;
 				return;
 			}
 
@@ -264,8 +268,7 @@ namespace Logging
 		using LogHandler::setLevel;
 		void setLogDir(const std::filesystem::path& logdir) { m_logdir = logdir; }
 
-		template <typename T>
-		void log(const LogLevel& level, T message, std::string loggerName)
+		template <typename T> void log(const LogLevel& level, const std::string& loggerName, T message)
 		{
 			if (level < m_loglevel || m_fileError) { return; }
 
@@ -305,11 +308,17 @@ namespace Logging
 		Logger() : Logger("logger") {}
 		Logger(const Logger&) = delete;
 
+		void debug(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_DEBUG, fmt, args); va_end(args); }
+		void log(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_LOG, fmt, args); va_end(args); }
+		void info(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_INFO, fmt, args); va_end(args); }
+		void warning(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_WARNING, fmt, args); va_end(args); }
+		void warn(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_WARNING, fmt, args); va_end(args); }
+		void error(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_ERROR, fmt, args); va_end(args); }
 		template <typename T> void debug(T message) { _log(LogLevel::LOG_DEBUG, message); }
 		template <typename T> void log(T message) { _log(LogLevel::LOG_LOG, message); }
 		template <typename T> void info(T message) { _log(LogLevel::LOG_INFO, message); }
 		template <typename T> void warning(T message) { _log(LogLevel::LOG_WARNING, message); }
-		template <typename T> void warn(T message) { Logger::warning(message); }
+		template <typename T> void warn(T message) { _log(LogLevel::LOG_WARNING, message); }
 		template <typename T> void error(T message) { _log(LogLevel::LOG_ERROR, message); }
 
 		std::string getName() const { return m_name; }
@@ -343,11 +352,27 @@ namespace Logging
 		ConsoleHandler& m_consoleHandler = s_defaultConsoleHandler;
 		FileHandler& m_fileHandler = s_defaultFileHandler;
 
+		void _log(const LogLevel& level, const char* fmt, va_list args)
+		{
+			if (level < m_loglevel) { return; }
+
+			// Make a copy of the variable arguments list so we can test for length
+			va_list args2;
+			va_copy(args2, args);
+			std::vector<char> buffer(vsnprintf(nullptr, 0, fmt, args2) + 1);
+			va_end(args2);
+			vsnprintf(&buffer[0], buffer.size(), fmt, args);
+			std::string message{ &buffer[0] };
+
+			m_consoleHandler.log(level, message);
+			m_fileHandler.log(level, m_name, message);
+		}
+
 		template <typename T> void _log(const LogLevel& level, T message)
 		{
 			if (level < m_loglevel) { return; }
 			m_consoleHandler.log(level, message);
-			m_fileHandler.log(level, message, m_name);
+			m_fileHandler.log(level, m_name, message);
 		}
 	};
 }
