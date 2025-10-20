@@ -8,6 +8,7 @@
 #include <vector>
 #include <unordered_map>
 #include <chrono>
+#include <cstdarg>
 
 #ifdef _WIN32
 #include <wchar.h>
