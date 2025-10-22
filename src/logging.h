@@ -324,9 +324,11 @@ namespace Logging
 
 		std::string getName() const { return m_name; }
 		void setLevel(const LogLevel& loglevel) { m_loglevel = loglevel; }
-		void setConsoleHandlerLevel(const LogLevel& loglevel) { m_consoleHandler.setLevel(loglevel); }
-		void setFileHandlerLevel(const LogLevel& loglevel) { m_fileHandler.setLevel(loglevel); }
-		void setFileHandlerLogDir(const std::filesystem::path& logDir) { m_fileHandler.setLogDir(logDir); }
+		void setConsoleHandlerLevel(const LogLevel& loglevel) { if (m_consoleHandler) m_consoleHandler->setLevel(loglevel); }
+		void setFileHandlerLevel(const LogLevel& loglevel) { if (m_fileHandler) m_fileHandler->setLevel(loglevel); }
+		void setFileHandlerLogDir(const std::filesystem::path& logDir) { m_fileHandler->setLogDir(logDir); }
+		void setConsoleHandler(ConsoleHandler* handler) { m_consoleHandler = handler; }
+		void setFileHandler(FileHandler* handler) { m_fileHandler = handler; }
 
 		static Logger& getLogger(const std::string& loggerName)
 		{
@@ -350,8 +352,8 @@ namespace Logging
 
 		const std::string m_name;
 		LogLevel m_loglevel = DEFAULT_LOG_LEVEL;
-		ConsoleHandler& m_consoleHandler = s_defaultConsoleHandler;
-		FileHandler& m_fileHandler = s_defaultFileHandler;
+		ConsoleHandler* m_consoleHandler = &s_defaultConsoleHandler;
+		FileHandler* m_fileHandler = &s_defaultFileHandler;
 
 		void _log(const LogLevel& level, const char* fmt, va_list args)
 		{
@@ -365,15 +367,15 @@ namespace Logging
 			vsnprintf(&buffer[0], buffer.size(), fmt, args);
 			std::string message{ &buffer[0] };
 
-			m_consoleHandler.log(level, message);
-			m_fileHandler.log(level, m_name, message);
+			if (m_consoleHandler) { m_consoleHandler->log(level, message); }
+			if (m_fileHandler) { m_fileHandler->log(level, m_name, message); }
 		}
 
 		template <typename T> void _log(const LogLevel& level, T message)
 		{
 			if (level < m_loglevel) { return; }
-			m_consoleHandler.log(level, message);
-			m_fileHandler.log(level, m_name, message);
+			if (m_consoleHandler) { m_consoleHandler->log(level, message); }
+			if (m_fileHandler) { m_fileHandler->log(level, m_name, message); }
 		}
 	};
 }
