@@ -202,6 +202,7 @@ namespace Logging
 		LogHandler() : m_loglevel(LogLevel::LOG_INFO) {}
 		LogHandler(const LogLevel& loglevel) : m_loglevel(loglevel) {}
 		void setLevel(const LogLevel& loglevel) { m_loglevel = loglevel; }
+		LogLevel getLevel() const { return m_loglevel; }
 	};
 
 	class ConsoleHandler : public LogHandler
@@ -209,6 +210,7 @@ namespace Logging
 	public:
 		using LogHandler::LogHandler;
 		using LogHandler::setLevel;
+		using LogHandler::getLevel;
 
 		template <typename T> void log(const LogLevel& level, T message)
 		{
@@ -267,6 +269,7 @@ namespace Logging
 		FileHandler() : FileHandler("logs", LogLevel::LOG_WARNING) {}
 		~FileHandler() { if (m_logfile.is_open()) m_logfile.close(); }
 		using LogHandler::setLevel;
+		using LogHandler::getLevel;
 		void setLogDir(const std::filesystem::path& logdir) { m_logdir = logdir; }
 
 		template <typename T> void log(const LogLevel& level, const std::string& loggerName, T message)
@@ -324,6 +327,7 @@ namespace Logging
 
 		std::string getName() const { return m_name; }
 		void setLevel(const LogLevel& loglevel) { m_loglevel = loglevel; }
+		LogLevel getLevel() const { return m_loglevel; }
 		void setConsoleHandlerLevel(const LogLevel& loglevel) { if (m_consoleHandler) m_consoleHandler->setLevel(loglevel); }
 		void setFileHandlerLevel(const LogLevel& loglevel) { if (m_fileHandler) m_fileHandler->setLevel(loglevel); }
 		void setFileHandlerLogDir(const std::filesystem::path& logDir) { m_fileHandler->setLogDir(logDir); }
