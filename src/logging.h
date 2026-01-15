@@ -5,10 +5,12 @@
 #include <filesystem>
 #include <cinttypes>
 #include <string>
+#include <utility>
 #include <vector>
 #include <unordered_map>
 #include <chrono>
 #include <cstdarg>
+#include <ranges>
 
 #ifdef _WIN32
 #include <wchar.h>
@@ -77,7 +79,7 @@ namespace Styling
 	static inline constexpr uint32_t success	= bold | green;
 
 
-	static inline std::string style(uint32_t style = reset, bool noReset = false)
+	static std::string style(const uint32_t style = reset, bool noReset = false)
 	{
 		if (!g_isVirtual) return "";
 
@@ -118,11 +120,11 @@ namespace Styling
 }
 
 
-static inline std::string formattedDatetime(const char* fmt)
+static std::string formattedDatetime(const char* fmt)
 {
 	std::stringstream buffer;
 	time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-	struct tm timeinfo;
+	tm timeinfo{};
 #ifdef _WIN32
 	localtime_s(&timeinfo, &t);
 #else
@@ -144,7 +146,7 @@ namespace Logging
 		LOG_ERROR,
 	};
 
-	static inline constexpr const char* getLogLevelName(LogLevel level)
+	static constexpr const char* getLogLevelName(LogLevel level)
 	{
 		switch (level)
 		{
@@ -169,9 +171,9 @@ namespace Logging
 		LogLevel m_loglevel;
 	public:
 		LogHandler() : m_loglevel(LogLevel::LOG_INFO) {}
-		LogHandler(const LogLevel& loglevel) : m_loglevel(loglevel) {}
+		explicit LogHandler(const LogLevel& loglevel) : m_loglevel(loglevel) {}
 		void setLevel(const LogLevel& loglevel) { m_loglevel = loglevel; }
-		LogLevel getLevel() const { return m_loglevel; }
+		[[nodiscard]] LogLevel getLevel() const { return m_loglevel; }
 	};
 
 	class ConsoleHandler : public LogHandler
@@ -181,7 +183,7 @@ namespace Logging
 		using LogHandler::setLevel;
 		using LogHandler::getLevel;
 
-		template <typename T> void log(const LogLevel& level, T message)
+		template <typename T> void log(const LogLevel& level, const T& message)
 		{
 			if (level < m_loglevel) { return; }
 
@@ -227,21 +229,20 @@ namespace Logging
 
 	class FileHandler : public LogHandler
 	{
-	private:
 		bool m_fileError = false;
 		bool m_logdirChecked = false;
 		bool m_logfileChecked = false;
 		std::filesystem::path m_logdir;
 		std::ofstream m_logfile;
 	public:
-		FileHandler(const std::filesystem::path& logdir, const LogLevel& loglevel) : m_logdir(logdir) { m_loglevel = loglevel; }
+		FileHandler(std::filesystem::path logdir, const LogLevel& loglevel) : m_logdir(std::move(logdir)) { m_loglevel = loglevel; }
 		FileHandler() : FileHandler("logs", LogLevel::LOG_WARNING) {}
 		~FileHandler() { if (m_logfile.is_open()) m_logfile.close(); }
 		using LogHandler::setLevel;
 		using LogHandler::getLevel;
 		void setLogDir(const std::filesystem::path& logdir) { m_logdir = logdir; }
 
-		template <typename T> void log(const LogLevel& level, const std::string& loggerName, T message)
+		template <typename T> void log(const LogLevel& level, const std::string& loggerName, const T& message)
 		{
 			if (level < m_loglevel || m_fileError) { return; }
 
@@ -277,16 +278,16 @@ namespace Logging
 	class Logger
 	{
 	public:
-		Logger(const std::string& name) : m_name(name), m_loglevel(DEFAULT_LOG_LEVEL) {}
+		explicit Logger(std::string  name) : m_name(std::move(name)) {}
 		Logger() : Logger("logger") {}
 		Logger(const Logger&) = delete;
 
-		void debug(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_DEBUG, fmt, args); va_end(args); }
-		void log(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_LOG, fmt, args); va_end(args); }
-		void info(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_INFO, fmt, args); va_end(args); }
-		void warning(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_WARNING, fmt, args); va_end(args); }
-		void warn(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_WARNING, fmt, args); va_end(args); }
-		void error(const char* fmt, ...) { va_list args; va_start(args, fmt); _log(LogLevel::LOG_ERROR, fmt, args); va_end(args); }
+		void debug(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::LOG_DEBUG, fmt, args); va_end(args); }
+		void log(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::LOG_LOG, fmt, args); va_end(args); }
+		void info(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::LOG_INFO, fmt, args); va_end(args); }
+		void warning(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::LOG_WARNING, fmt, args); va_end(args); }
+		void warn(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::LOG_WARNING, fmt, args); va_end(args); }
+		void error(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::LOG_ERROR, fmt, args); va_end(args); }
 		template <typename T> void debug(T message) { _log(LogLevel::LOG_DEBUG, message); }
 		template <typename T> void log(T message) { _log(LogLevel::LOG_LOG, message); }
 		template <typename T> void info(T message) { _log(LogLevel::LOG_INFO, message); }
@@ -294,28 +295,28 @@ namespace Logging
 		template <typename T> void warn(T message) { _log(LogLevel::LOG_WARNING, message); }
 		template <typename T> void error(T message) { _log(LogLevel::LOG_ERROR, message); }
 
-		std::string getName() const { return m_name; }
+		[[nodiscard]] std::string getName() const { return m_name; }
 		void setLevel(const LogLevel& loglevel) { m_loglevel = loglevel; }
-		LogLevel getLevel() const { return m_loglevel; }
-		void setConsoleHandlerLevel(const LogLevel& loglevel) { if (m_consoleHandler) m_consoleHandler->setLevel(loglevel); }
-		void setFileHandlerLevel(const LogLevel& loglevel) { if (m_fileHandler) m_fileHandler->setLevel(loglevel); }
-		void setFileHandlerLogDir(const std::filesystem::path& logDir) { m_fileHandler->setLogDir(logDir); }
+		[[nodiscard]] LogLevel getLevel() const { return m_loglevel; }
+		void setConsoleHandlerLevel(const LogLevel& loglevel) const { if (m_consoleHandler) m_consoleHandler->setLevel(loglevel); }
+		void setFileHandlerLevel(const LogLevel& loglevel) const { if (m_fileHandler) m_fileHandler->setLevel(loglevel); }
+		void setFileHandlerLogDir(const std::filesystem::path& logDir) const { m_fileHandler->setLogDir(logDir); }
 		void setConsoleHandler(ConsoleHandler* handler) { m_consoleHandler = handler; }
 		void setFileHandler(FileHandler* handler) { m_fileHandler = handler; }
 
 		static Logger& getLogger(const std::string& loggerName)
 		{
-			if (Logger::s_loggers.contains(loggerName)) return *Logger::s_loggers[loggerName];
-			Logger::s_loggers.insert(std::pair{ loggerName, std::make_unique<Logger>(loggerName) });
-			return *Logger::s_loggers[loggerName];
+			if (s_loggers.contains(loggerName)) return *s_loggers[loggerName];
+			s_loggers.insert(std::pair{ loggerName, std::make_unique<Logger>(loggerName) });
+			return *s_loggers[loggerName];
 		}
 		static void setGlobalConsoleLevelDebug()
 		{
 			s_defaultConsoleHandler.setLevel(LogLevel::LOG_DEBUG);
-			for (std::pair<const std::string, std::unique_ptr<Logger>>& kv : s_loggers)
+			for (const auto &logger: s_loggers | std::views::values)
 			{
-				kv.second->setLevel(LogLevel::LOG_DEBUG);
-				kv.second->setConsoleHandlerLevel(LogLevel::LOG_DEBUG);
+				logger->setLevel(LogLevel::LOG_DEBUG);
+				logger->setConsoleHandlerLevel(LogLevel::LOG_DEBUG);
 			}
 		}
 	private:
@@ -328,7 +329,7 @@ namespace Logging
 		ConsoleHandler* m_consoleHandler = &s_defaultConsoleHandler;
 		FileHandler* m_fileHandler = &s_defaultFileHandler;
 
-		void _log(const LogLevel& level, const char* fmt, va_list args)
+		void _log(const LogLevel& level, const char* fmt, va_list args) const
 		{
 			if (level < m_loglevel) { return; }
 
@@ -338,7 +339,7 @@ namespace Logging
 			std::vector<char> buffer(vsnprintf(nullptr, 0, fmt, args2) + 1);
 			va_end(args2);
 			vsnprintf(&buffer[0], buffer.size(), fmt, args);
-			std::string message{ &buffer[0] };
+			const std::string message{ &buffer[0] };
 
 			if (m_consoleHandler) { m_consoleHandler->log(level, message); }
 			if (m_fileHandler) { m_fileHandler->log(level, m_name, message); }
