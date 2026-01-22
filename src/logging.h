@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 #include <unordered_map>
+#include <source_location>
 #include <chrono>
 #include <cstdarg>
 #include <ranges>
@@ -30,6 +31,14 @@ static std::string formattedDatetime(const char* fmt)
 
 namespace Logging
 {
+	struct FormatString
+	{
+		const char* fmt;
+		std::source_location location;
+		FormatString(const char* _fmt, const std::source_location& _location = std::source_location::current())
+			: fmt(_fmt), location(_location) {};
+	};
+
 	enum class LogLevel
 	{
 		Debug,
@@ -38,19 +47,6 @@ namespace Logging
 		Warning,
 		Error,
 	};
-
-	static constexpr const char* getLogLevelName(LogLevel level)
-	{
-		switch (level)
-		{
-		case LogLevel::Debug:   return "DEBUG";
-		case LogLevel::Log:     return "";
-		case LogLevel::Info:    return "INFO";
-		case LogLevel::Warning: return "WARNING";
-		case LogLevel::Error:   return "ERROR";
-		}
-		return "";
-	}
 
 #ifdef _DEBUG
 	static inline constexpr LogLevel c_DefaultLogLevel = LogLevel::Debug;
@@ -62,6 +58,18 @@ namespace Logging
 	{
 	protected:
 		LogLevel m_loglevel;
+		static constexpr const char* getLogLevelName(LogLevel level)
+		{
+			switch (level)
+			{
+			case LogLevel::Debug:   return "DEBUG";
+			case LogLevel::Log:     return "";
+			case LogLevel::Info:    return "INFO";
+			case LogLevel::Warning: return "WARNING";
+			case LogLevel::Error:   return "ERROR";
+			}
+			return "";
+		}
 	public:
 		LogHandler() : m_loglevel(LogLevel::Info) {}
 		explicit LogHandler(const LogLevel& loglevel) : m_loglevel(loglevel) {}
@@ -76,7 +84,7 @@ namespace Logging
 		using LogHandler::setLevel;
 		using LogHandler::getLevel;
 
-		template <typename T> void log(const LogLevel& level, const T& message)
+		template <typename T> void log(const LogLevel& level, const T& message, const std::source_location& location)
 		{
 			if (level < m_loglevel) { return; }
 
@@ -110,9 +118,13 @@ namespace Logging
 				break;
 			case LogLevel::Warning:
 				os << Styling::style(Styling::warning);
+				if (location.file_name() && location.line())
+					os << location.file_name() << ':' << location.line() << "| ";
 				break;
 			case LogLevel::Error:
 				os << Styling::style(Styling::error);
+				if (location.file_name() && location.line())
+					os << location.file_name() << ':' << location.line() << "| ";
 				break;
 			}
 
@@ -135,7 +147,7 @@ namespace Logging
 		using LogHandler::getLevel;
 		void setLogDir(const std::filesystem::path& logdir) { m_logdir = logdir; }
 
-		template <typename T> void log(const LogLevel& level, const std::string& loggerName, const T& message)
+		template <typename T> void log(const LogLevel& level, const std::string& loggerName, const T& message, const std::source_location& location)
 		{
 			if (level < m_loglevel || m_fileError) { return; }
 
@@ -163,8 +175,11 @@ namespace Logging
 				m_logfileChecked = true;
 			}
 
-			m_logfile << formattedDatetime("[%FT%T]") << getLogLevelName(level) << "|"
-				<< loggerName << "|" << message << std::endl;
+			m_logfile << formattedDatetime("[%FT%T]")
+				<< getLogLevelName(level) << '|' << loggerName;
+			if (location.file_name() && location.line())
+				m_logfile << '|' << location.file_name() << ':' << location.line();
+			m_logfile << '|' << message << std::endl;
 		}
 	};
 
@@ -175,18 +190,18 @@ namespace Logging
 		Logger() : Logger("logger") {}
 		Logger(const Logger&) = delete;
 
-		void debug(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::Debug, fmt, args); va_end(args); }
-		void log(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::Log, fmt, args); va_end(args); }
-		void info(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::Info, fmt, args); va_end(args); }
-		void warning(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::Warning, fmt, args); va_end(args); }
-		void warn(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::Warning, fmt, args); va_end(args); }
-		void error(const char* fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::Error, fmt, args); va_end(args); }
-		template <typename T> void debug(T message) { _log(LogLevel::Debug, message); }
-		template <typename T> void log(T message) { _log(LogLevel::Log, message); }
-		template <typename T> void info(T message) { _log(LogLevel::Info, message); }
-		template <typename T> void warning(T message) { _log(LogLevel::Warning, message); }
-		template <typename T> void warn(T message) { _log(LogLevel::Warning, message); }
-		template <typename T> void error(T message) { _log(LogLevel::Error, message); }
+		void debug(const char* fmt...) const { va_list args; va_start(args, fmt); _log(LogLevel::Debug, fmt, args); va_end(args); }
+		void log(const char* fmt...) const { va_list args; va_start(args, fmt); _log(LogLevel::Log, fmt, args); va_end(args); }
+		void info(const char* fmt...) const { va_list args; va_start(args, fmt); _log(LogLevel::Info, fmt, args); va_end(args); }
+		void warning(const FormatString fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::Warning, fmt.fmt, args, fmt.location); va_end(args); }
+		void warn(const FormatString fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::Warning, fmt.fmt, args, fmt.location); va_end(args); }
+		void error(const FormatString fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::Error, fmt.fmt, args, fmt.location); va_end(args); }
+		template <typename T> void debug(T message, const std::source_location& location = std::source_location::current()) { _log(LogLevel::Debug, message, location); }
+		template <typename T> void log(T message, const std::source_location& location = std::source_location::current()) { _log(LogLevel::Log, message, location); }
+		template <typename T> void info(T message, const std::source_location& location = std::source_location::current()) { _log(LogLevel::Info, message, location); }
+		template <typename T> void warning(T message, const std::source_location& location = std::source_location::current()) { _log(LogLevel::Warning, message, location); }
+		template <typename T> void warn(T message, const std::source_location& location = std::source_location::current()) { _log(LogLevel::Warning, message, location); }
+		template <typename T> void error(T message, const std::source_location& location = std::source_location::current()) { _log(LogLevel::Error, message, location); }
 
 		[[nodiscard]] std::string getName() const { return m_name; }
 		void setLevel(const LogLevel& loglevel) { m_loglevel = loglevel; }
@@ -222,7 +237,7 @@ namespace Logging
 		ConsoleHandler* m_consoleHandler = &s_defaultConsoleHandler;
 		FileHandler* m_fileHandler = &s_defaultFileHandler;
 
-		void _log(const LogLevel& level, const char* fmt, va_list args) const
+		void _log(const LogLevel& level, const char* fmt, va_list args, const std::source_location& location = std::source_location::current()) const
 		{
 			if (level < m_loglevel) { return; }
 
@@ -234,15 +249,15 @@ namespace Logging
 			vsnprintf(&buffer[0], buffer.size(), fmt, args);
 			const std::string message{ &buffer[0] };
 
-			if (m_consoleHandler) { m_consoleHandler->log(level, message); }
-			if (m_fileHandler) { m_fileHandler->log(level, m_name, message); }
+			if (m_consoleHandler) { m_consoleHandler->log(level, message, location); }
+			if (m_fileHandler) { m_fileHandler->log(level, m_name, message, location); }
 		}
 
-		template <typename T> void _log(const LogLevel& level, T message)
+		template <typename T> void _log(const LogLevel& level, T message, const std::source_location& location = std::source_location::current())
 		{
 			if (level < m_loglevel) { return; }
-			if (m_consoleHandler) { m_consoleHandler->log(level, message); }
-			if (m_fileHandler) { m_fileHandler->log(level, m_name, message); }
+			if (m_consoleHandler) { m_consoleHandler->log(level, message, location); }
+			if (m_fileHandler) { m_fileHandler->log(level, m_name, message, location); }
 		}
 	};
 }
