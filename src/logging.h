@@ -110,21 +110,29 @@ namespace Logging
 			{
 			case LogLevel::Log:
 				break;
-			case LogLevel::Debug:
-				os << Styling::style(Styling::debug);
-				break;
 			case LogLevel::Info:
 				os << Styling::style(Styling::info);
 				break;
+			case LogLevel::Debug:
+				if (location.file_name() && location.line()) {
+					os << Styling::style(Styling::dim)
+					<< location.file_name() << ':' << location.line() << ' ';
+				}
+				os << Styling::style(Styling::debug);
+				break;
 			case LogLevel::Warning:
+				if (location.file_name() && location.line()) {
+					os << Styling::style(Styling::dim)
+					<< location.file_name() << ':' << location.line() << ' ';
+				}
 				os << Styling::style(Styling::warning);
-				if (location.file_name() && location.line())
-					os << location.file_name() << ':' << location.line() << "| ";
 				break;
 			case LogLevel::Error:
+				if (location.file_name() && location.line()) {
+					os << Styling::style(Styling::dim)
+					<< location.file_name() << ':' << location.line() << ' ';
+				}
 				os << Styling::style(Styling::error);
-				if (location.file_name() && location.line())
-					os << location.file_name() << ':' << location.line() << "| ";
 				break;
 			}
 
@@ -190,7 +198,7 @@ namespace Logging
 		Logger() : Logger("logger") {}
 		Logger(const Logger&) = delete;
 
-		void debug(const char* fmt...) const { va_list args; va_start(args, fmt); _log(LogLevel::Debug, fmt, args); va_end(args); }
+		void debug(const FormatString fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::Debug, fmt.fmt, args, fmt.location); va_end(args); }
 		void log(const char* fmt...) const { va_list args; va_start(args, fmt); _log(LogLevel::Log, fmt, args); va_end(args); }
 		void info(const char* fmt...) const { va_list args; va_start(args, fmt); _log(LogLevel::Info, fmt, args); va_end(args); }
 		void warning(const FormatString fmt, ...) const { va_list args; va_start(args, fmt); _log(LogLevel::Warning, fmt.fmt, args, fmt.location); va_end(args); }

@@ -16,7 +16,7 @@ int main(int argc, char** argv)
     logger.setConsoleHandlerLevel(LogLevel::Debug);
 
     // Variadic log functions similar to printf and its variants
-    logger.debug("This is a %s message", "debug");
+    logger.debug("This is a %s message with file name and line number", "debug");
     logger.info("This is an %s message", "info");
     logger.log("This is a %s message with no level prefix", "log");
     logger.warn("This is a %s message with file name and line number", "warning");
