@@ -116,21 +116,24 @@ namespace Logging
 			case LogLevel::Debug:
 				if (location.file_name() && location.line()) {
 					os << Styling::style(Styling::dim)
-					<< location.file_name() << ':' << location.line() << ' ';
+					<< std::filesystem::path{location.file_name()}.filename().string()
+					<< ':' << location.line() << ' ';
 				}
 				os << Styling::style(Styling::debug);
 				break;
 			case LogLevel::Warning:
 				if (location.file_name() && location.line()) {
 					os << Styling::style(Styling::dim)
-					<< location.file_name() << ':' << location.line() << ' ';
+					<< std::filesystem::path{location.file_name()}.filename().string()
+					<< ':' << location.line() << ' ';
 				}
 				os << Styling::style(Styling::warning);
 				break;
 			case LogLevel::Error:
 				if (location.file_name() && location.line()) {
 					os << Styling::style(Styling::dim)
-					<< location.file_name() << ':' << location.line() << ' ';
+					<< std::filesystem::path{location.file_name()}.filename().string()
+					<< ':' << location.line() << ' ';
 				}
 				os << Styling::style(Styling::error);
 				break;
@@ -185,8 +188,11 @@ namespace Logging
 
 			m_logfile << formattedDatetime("[%FT%T]")
 				<< getLogLevelName(level) << '|' << loggerName;
-			if (location.file_name() && location.line())
-				m_logfile << '|' << location.file_name() << ':' << location.line();
+			if (location.file_name() && location.line()) {
+				m_logfile << '|'
+				<< std::filesystem::path{location.file_name()}.filename().string()
+				<< ':' << location.line();
+			}
 			m_logfile << '|' << message << std::endl;
 		}
 	};
