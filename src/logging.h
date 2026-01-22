@@ -160,9 +160,9 @@ namespace Logging
 	}
 
 #ifdef _DEBUG
-	static inline constexpr LogLevel DEFAULT_LOG_LEVEL = LogLevel::Debug;
+	static inline constexpr LogLevel c_DefaultLogLevel = LogLevel::Debug;
 #else
-	static inline constexpr LogLevel DEFAULT_LOG_LEVEL = LogLevel::Info;
+	static inline constexpr LogLevel c_DefaultLogLevel = LogLevel::Info;
 #endif
 
 	class LogHandler
@@ -321,11 +321,11 @@ namespace Logging
 		}
 	private:
 		static inline std::unordered_map<std::string, std::unique_ptr<Logger>> s_loggers{};
-		static inline ConsoleHandler s_defaultConsoleHandler{ DEFAULT_LOG_LEVEL };
+		static inline ConsoleHandler s_defaultConsoleHandler{ c_DefaultLogLevel };
 		static inline FileHandler s_defaultFileHandler;
 
 		const std::string m_name;
-		LogLevel m_loglevel = DEFAULT_LOG_LEVEL;
+		LogLevel m_loglevel = c_DefaultLogLevel;
 		ConsoleHandler* m_consoleHandler = &s_defaultConsoleHandler;
 		FileHandler* m_fileHandler = &s_defaultFileHandler;
 
