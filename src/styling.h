@@ -8,35 +8,33 @@
 #endif
 
 
-/**
- * Check if we can enable virtual terminal (needed for ANSI escape sequences)
- * From: https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences#example-of-enabling-virtual-terminal-processing
- */
-static bool enableVirtualTerminal()
-{
-#ifdef _WIN32
-    // Set output mode to handle virtual terminal sequences
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hOut == INVALID_HANDLE_VALUE)
-        return false;
-
-    DWORD dwMode = 0;
-    if (!GetConsoleMode(hOut, &dwMode))
-        return false;
-
-    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    if (!SetConsoleMode(hOut, dwMode))
-        return false;
-
-	return true;
-#endif
-	return true;
-}
-
-
 namespace Styling
 {
-	static bool g_isVirtual = enableVirtualTerminal();
+#ifdef _WIN32
+	/**
+	 * Check if we can enable virtual terminal (needed for ANSI escape sequences)
+	 * From: https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences#example-of-enabling-virtual-terminal-processing
+	 */
+	static inline bool g_isVirtual = ([]()
+	{
+		// Set output mode to handle virtual terminal sequences
+		HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+		if (hOut == INVALID_HANDLE_VALUE)
+			return false;
+
+		DWORD dwMode = 0;
+		if (!GetConsoleMode(hOut, &dwMode))
+			return false;
+
+		dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+		if (!SetConsoleMode(hOut, dwMode))
+			return false;
+
+		return true;
+	})();
+#else
+	static bool g_isVirtual = true;
+#endif
 
 	static inline constexpr unsigned int reset			= 0;
 	static inline constexpr unsigned int bold			= 1;
