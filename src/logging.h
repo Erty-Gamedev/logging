@@ -14,21 +14,6 @@
 #include "styling.h"
 
 
-static std::string formattedDatetime(const char* fmt)
-{
-	std::stringstream buffer;
-	time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-	tm timeinfo{};
-#ifdef _WIN32
-	localtime_s(&timeinfo, &t);
-#else
-	localtime_r(&t, &timeinfo);
-#endif
-	buffer << std::put_time(&timeinfo, fmt);
-	return buffer.str();
-}
-
-
 namespace Logging
 {
 	struct FormatString
@@ -145,6 +130,20 @@ namespace Logging
 
 	class FileHandler : public LogHandler
 	{
+		static std::string formattedDatetime(const char* fmt)
+		{
+			std::stringstream buffer;
+			time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+			tm timeinfo{};
+		#ifdef _WIN32
+			localtime_s(&timeinfo, &t);
+		#else
+			localtime_r(&t, &timeinfo);
+		#endif
+			buffer << std::put_time(&timeinfo, fmt);
+			return buffer.str();
+		}
+
 		bool m_fileError = false;
 		bool m_logdirChecked = false;
 		bool m_logfileChecked = false;
